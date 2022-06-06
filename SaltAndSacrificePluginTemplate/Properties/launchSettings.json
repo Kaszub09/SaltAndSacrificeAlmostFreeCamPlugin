@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "RunSas": {
+      "commandName": "Executable",
+      "executablePath": "$(SolutionDir)..\\..\\BepInEx.NetLauncher.exe",
+      "workingDirectory": "$(SolutionDir)..\\..\\"
+    }
+  }
+}
