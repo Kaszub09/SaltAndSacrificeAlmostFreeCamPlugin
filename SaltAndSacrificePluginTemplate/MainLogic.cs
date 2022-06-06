@@ -91,9 +91,6 @@ namespace SaltAndSacrificeFreeCam
                 wasShowKeyPressed = false;
             }
 
-            //other stuff
-            ProjectMage.gamestate.GameState.godMode = true;
-            ProjectMage.gamestate.GameState.noClip = true ;
         }
 
         [HarmonyPrefix]
