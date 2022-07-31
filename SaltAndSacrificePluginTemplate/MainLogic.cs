@@ -4,6 +4,7 @@ using HarmonyLib;
 using Microsoft.Xna.Framework.Input;
 using ProjectMage.director;
 using SalmonMaps.director.bloom;
+using System;
 using Keyboard = Microsoft.Xna.Framework.Input.Keyboard;
 using Keys = Microsoft.Xna.Framework.Input.Keys;
 
@@ -18,6 +19,11 @@ namespace SaltAndSacrificeFreeCam
         static float zoom = 10f;
         static bool show = true;
         static bool wasShowKeyPressed = false;
+
+        static string[] MonsterTypeNames = { "NPC","MONSTER", "CHEST", "SWITCH", "TRAP", "HARVEST", "CRITTER", "TRAVEL" };
+
+        static ObjectVisibilitySettings visSettings = new ObjectVisibilitySettings();
+        static InputManager input = new InputManager();
 
         // a Prefix will run at the start of the target method
         // this method will run at the start of ProjectMage.Game1.Initialize()
@@ -34,92 +40,125 @@ namespace SaltAndSacrificeFreeCam
 			System.Console.ForegroundColor = colour;
 		}
 
-		// a Postfix will run at the end of the target method
-		// this method will run at the end of ProjectMage.player.PlayerMgr.Draw()
-		[HarmonyLib.HarmonyPostfix]
-		[HarmonyLib.HarmonyPatch(typeof(ProjectMage.player.PlayerMgr), "Draw")]
-		public static void DrawPluginText()
-		{
-			var loc = ProjectMage.character.CharMgr.character[GetMainPlayer().charIdx].loc;
-            if (show)
-            {
-                // this draws text to the screen
-                Menumancer.hud.Text.DrawText(new System.Text.StringBuilder("PLAYER LOCATION: " + loc.X + "|" + loc.Y   ),
-				    new Common.Vector2(100, 100), Common.Color.White, 0.5f, 0);
+        // a Postfix will run at the end of the target method
+        // this method will run at the end of ProjectMage.player.PlayerMgr.Draw()
+        [HarmonyLib.HarmonyPostfix]
+        [HarmonyLib.HarmonyPatch(typeof(ProjectMage.director.GameDraw), "DrawGame")]
+        public static void DrawText() {
+            if (show) {
+                SpriteTools.BeginAlpha();
+
+                int drawTop = 300;
+                var loc = ProjectMage.character.CharMgr.character[GetMainPlayer().charIdx].loc;
+
+                Menumancer.hud.Text.DrawText(new System.Text.StringBuilder("PLAYER LOCATION: " + loc.X + "|" + loc.Y),
+                    new Common.Vector2(100, drawTop), Common.Color.White, 0.5f, 0);
+                drawTop += 50;
                 Menumancer.hud.Text.DrawText(new System.Text.StringBuilder("SPEED: " + speed),
-                    new Common.Vector2(100, 150), Common.Color.White, 0.5f, 0);
+                    new Common.Vector2(100, drawTop), Common.Color.White, 0.5f, 0);
+                drawTop += 50;
                 Menumancer.hud.Text.DrawText(new System.Text.StringBuilder("ZOOM: " + zoom),
-                    new Common.Vector2(100, 200), Common.Color.White, 0.5f, 0);
+                    new Common.Vector2(100, drawTop), Common.Color.White, 0.5f, 0);
+                drawTop += 50;
+
+                for (int i = 0; i < MonsterTypeNames.Length; i++) {
+                    Menumancer.hud.Text.DrawText(new System.Text.StringBuilder(MonsterTypeNames[i]+": " + visSettings[i]),
+                         new Common.Vector2(100, drawTop), Common.Color.White, 0.3f, 0);
+                    drawTop += 30;
+                }
+
+
+                SpriteTools.End();
             }
 
         }
 
         [HarmonyPostfix]
-        [HarmonyPatch(typeof(ProjectMage.player.PlayerMgr), "Draw")]
-        public static void DrawIconsd()
+        [HarmonyPatch(typeof(ProjectMage.config.InputProfile), "Update", new[] { typeof(int) })]
+        public static void UpdateInput()
         {
-			var kState = Keyboard.GetState();
+            input.UpdateKeyboeardState(Keyboard.GetState());
 
-			//speed multiplier
-			speed += kState.IsKeyDown(Keys.NumPad7) ? 1 : 0;
-            speed -= kState.IsKeyDown(Keys.NumPad9) ? 1 : 0;
+            //SPEED
+            input.ResolveKey(input.SpeedPlus, false, () => { speed += 1; });
+            input.ResolveKey(input.SpeedMinus, false, () => { speed -= 1; });
 
-			//char locoation
+            //PLAYER LOCATION
             var loc = ProjectMage.character.CharMgr.character[GetMainPlayer().charIdx].loc;
-            loc.X -= kState.IsKeyDown(Keys.NumPad4) ? 1* speed : 0;
-            loc.X += kState.IsKeyDown(Keys.NumPad6) ? 1 * speed : 0;
-            loc.Y -= kState.IsKeyDown(Keys.NumPad8) ? 1 * speed : 0;
-            loc.Y += kState.IsKeyDown(Keys.NumPad2) ? 1 * speed : 0;
+            input.ResolveKey(input.Move[Direction.Up], false, () => { loc.Y -=  1 * speed; });
+            input.ResolveKey(input.Move[Direction.Down], false, () => { loc.Y += 1 * speed; });
+            input.ResolveKey(input.Move[Direction.Left], false, () => { loc.X -= 1 * speed; });
+            input.ResolveKey(input.Move[Direction.Right], false, () => { loc.X += 1 * speed; });
 			ProjectMage.character.CharMgr.character[GetMainPlayer().charIdx].loc = new Vector2(loc.X, loc.Y);
 
-            //zoom multiplier
-            zoom += kState.IsKeyDown(Keys.NumPad1) ? 0.1f : 0;
-            zoom -= kState.IsKeyDown(Keys.NumPad3) ? 0.1f : 0;
+            //ZOOM
+            input.ResolveKey(input.ZoomPlus, input.IsModified(1)|| input.IsModified(2), () => {
+                if (input.IsModified(1)) {
+                    zoom = (float) Math.Round(zoom,0);
+                    zoom += 1;
+                } else if (input.IsModified(2)) {
+                    zoom = (float)Math.Round(zoom, 0);
+                    zoom += 10;
+                } else {
+                    zoom += 1;
+                }
+            });
+            input.ResolveKey(input.ZoomMinus, input.IsModified(1) || input.IsModified(2), () => {
+                if (input.IsModified(1)) {
+                    zoom = (float)Math.Round(zoom, 0);
+                    zoom -= 1;
+                } else if (input.IsModified(2)) {
+                    zoom = (float)Math.Round(zoom, 0);
+                    zoom -= 10;
+                } else {
+                    zoom -= 1;
+                }
+            });
             GetMainPlayer().camMgr.zoom =-1*zoom;
 
-            //change show
-            if (kState.IsKeyDown(Keys.NumPad5))
-            {
-                if (!wasShowKeyPressed)
-                {
-                    show = !show;
-                    wasShowKeyPressed = true;
-                }
-            }
-            else
-            {
-                wasShowKeyPressed = false;
+            //PLAYER and HUD visibility
+            input.ResolveKey(input.PlayerHUD, true, () => {
+                visSettings["PLAYER"] = !visSettings["PLAYER"];
+                visSettings["HUD"] = !visSettings["HUD"];
+            });
+
+
+            //MONSTER visibility
+            foreach(var key in input.MonstersVisibilityKeys) {
+                input.ResolveKey(key, true, () => { visSettings[key - Keys.D0] = !visSettings[key - Keys.D0]; });
             }
 
         }
 
+
+
         [HarmonyPrefix]
         [HarmonyPatch(typeof(ProjectMage.character.Character), nameof(ProjectMage.character.Character.Draw), new[] { typeof(Vector2), typeof(float) })]
-        static bool SkipDrawingHUDAndSomeObjects(ProjectMage.character.Character __instance, Vector2 loc, float scale)
-        {
+        static bool SkipDrawingCharacter(ProjectMage.character.Character __instance, Vector2 loc, float scale) {
 
-            ProjectMage.gamestate.GameState.hideHUD = !show;
-            if (__instance.monsterIdx > -1)
-            {
+            if (__instance.ID == GetMainPlayer().charIdx) {
+                return visSettings["PLAYER"];
+            }
+
+            if (__instance.monsterIdx > -1) {
                 MonsterDef monsterDef = MonsterCatalog.monsterDef[__instance.monsterIdx];
-                switch (monsterDef.type)
-                {
-                    case 0: //NPC
-                    case 1: //MONSTER
-                    case 6://"Critter";
-                    case 7://travel 
-                        return show;
-                    case 2://"Chest";
-                    case 3://"Switch";
-                    case 4:// "Trap";
-                    case 5://"Harvest";
-                        return true;
-                    default:
-                        return show;
+                return visSettings[monsterDef.type];
+            }
 
-                }
+            return true;
+        }
 
 
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ProjectMage.character.Character), nameof(ProjectMage.character.Character.DrawShadow), new[] { typeof(MonsterDef), typeof(bool) })]
+        static bool SkipDrawingShadow(ProjectMage.character.Character __instance, MonsterDef mDef, bool direct) {
+            if (__instance.ID == GetMainPlayer().charIdx) {
+                return visSettings["PLAYER"];
+            }
+
+            if (__instance.monsterIdx > -1) {
+                MonsterDef monsterDef = MonsterCatalog.monsterDef[__instance.monsterIdx];
+                return visSettings[monsterDef.type];
             }
 
             return true;
