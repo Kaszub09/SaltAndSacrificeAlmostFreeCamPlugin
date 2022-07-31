@@ -17,8 +17,6 @@ namespace SaltAndSacrificeFreeCam
 	{
 		static float speed = 10f;
         static float zoom = 10f;
-        static bool show = true;
-        static bool wasShowKeyPressed = false;
 
         static string[] MonsterTypeNames = { "NPC","MONSTER", "CHEST", "SWITCH", "TRAP", "HARVEST", "CRITTER", "TRAVEL" };
 
@@ -45,7 +43,7 @@ namespace SaltAndSacrificeFreeCam
         [HarmonyLib.HarmonyPostfix]
         [HarmonyLib.HarmonyPatch(typeof(ProjectMage.director.GameDraw), "DrawGame")]
         public static void DrawText() {
-            if (show) {
+            if (visSettings["HUD"]) {
                 SpriteTools.BeginAlpha();
 
                 int drawTop = 300;
@@ -121,10 +119,11 @@ namespace SaltAndSacrificeFreeCam
                 visSettings["PLAYER"] = !visSettings["PLAYER"];
                 visSettings["HUD"] = !visSettings["HUD"];
             });
+            ProjectMage.gamestate.GameState.hideHUD = !visSettings["HUD"];
 
 
             //MONSTER visibility
-            foreach(var key in input.MonstersVisibilityKeys) {
+            foreach (var key in input.MonstersVisibilityKeys) {
                 input.ResolveKey(key, true, () => { visSettings[key - Keys.D0] = !visSettings[key - Keys.D0]; });
             }
 
@@ -163,6 +162,19 @@ namespace SaltAndSacrificeFreeCam
 
             return true;
         }
+
+        ////[HarmonyPrefix]
+        ////[HarmonyPatch(typeof(ProjectMage.map.arena.MapArena), nameof(ProjectMage.map.arena.MapArena.Update))]
+        ////static void SkipBosEncounters(ref bool __result) {
+        ////    __result = false;
+        ////}
+
+        ////[HarmonyPrefix]
+        ////[HarmonyPatch(typeof(ProjectMage.character.Character), nameof(ProjectMage.character.Character.IsMageOrBoss))]
+        ////static void SkipBossEncounters(ref bool __result) {
+        ////    __result = false;
+        ////}
+
 
         //[HarmonyPrefix]
         //[HarmonyPatch(typeof(BloomComponent), "Init")]
